@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"unicode"
 	"unicode/utf8"
 )
@@ -79,6 +80,10 @@ const (
 	beep = "\a"
 )
 
+var (
+	colorExpr *regexp.Regexp
+)
+
 func (s *State) refresh(prompt string, buf string, pos int) error {
 	s.cursorPos(0)
 	_, err := fmt.Print(prompt)
@@ -86,7 +91,7 @@ func (s *State) refresh(prompt string, buf string, pos int) error {
 		return err
 	}
 
-	pLen := utf8.RuneCountInString(prompt)
+	pLen := utf8.RuneCountInString(stripAnsiColorSequences(prompt))
 	bLen := utf8.RuneCountInString(buf)
 	if pLen+bLen < s.columns {
 		_, err = fmt.Print(buf)
@@ -734,4 +739,14 @@ mainLoop:
 		}
 	}
 	return string(line), nil
+}
+
+// Remove any ansi color sequences from a string, used for calculating
+// the length of the prompt.
+func stripAnsiColorSequences(in string) string {
+	if colorExpr == nil {
+		colorExpr = regexp.MustCompile("\x1b[^m]*m")
+	}
+
+	return colorExpr.ReplaceAllString(in, "")
 }
